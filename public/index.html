@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Từ Vựng Bẫy Não - Solo & PvP</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+  <link rel="stylesheet" href="style.css">
+  <!-- Thư viện Socket.IO client từ CDN công khai tương thích mọi nơi -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- THANH ĐIỀU HƯỚNG CHẾ ĐỘ -->
+    <nav class="mode-nav">
+      <button id="tab-solo-btn" class="tab-btn active">🎯 Luyện Tập Đơn</button>
+      <button id="tab-pvp-btn" class="tab-btn">⚔️ Đấu Online (PvP)</button>
+    </nav>
+
+    <!-- ==================== KHỐI CHƠI ĐƠN (GIỮ NGUYÊN 100%) ==================== -->
+    <section id="solo-section">
+      <header class="quiz-header">
+        <div class="score-box">Streak: <span id="current-streak">0</span> 🔥</div>
+        <div class="score-box">Kỷ lục: <span id="high-score">0</span> 🏆</div>
+      </header>
+
+      <main class="card-question">
+        <div class="badge-row">
+          <span class="badge" id="tier-badge">TẦNG 1: KHỞI ĐỘNG</span>
+          <span class="q-counter" id="q-counter">Câu: 1</span>
+        </div>
+
+        <div class="word-display" id="word-display">aspect</div>
+        <p class="instruction">Chọn nghĩa chuẩn nhất (cẩn thận bẫy):</p>
+
+        <div class="options-grid" id="options-grid"></div>
+        <div class="feedback-msg" id="feedback-msg"></div>
+
+        <button id="btn-next" class="btn-next hidden">Tiếp tục ➔</button>
+      </main>
+
+      <footer class="quiz-footer">
+        <button id="btn-reset" class="btn-text">↺ Reset kỷ lục</button>
+      </footer>
+    </section>
+
+    <!-- ==================== KHỐI PVP ONLINE ==================== -->
+    <section id="pvp-section" class="hidden">
+      <!-- Trạng thái kết nối máy chủ -->
+      <div id="connection-status" class="status-indicator">Đang kết nối tới máy chủ...</div>
+
+      <!-- Màn hình 1: Nhập tên -->
+      <div id="pvp-name-screen" class="pvp-box">
+        <h3>Tham Gia Đấu Trường</h3>
+        <p class="pvp-desc">Đặt tên hiển thị để mời và nhận lời thách đấu.</p>
+        <div class="input-group">
+          <input type="text" id="player-name-input" maxlength="16" placeholder="Nhập tên hiển thị (2-16 ký tự)...">
+          <button id="btn-join-lobby" class="btn-primary">Vào Sảnh</button>
+        </div>
+      </div>
+
+      <!-- Màn hình 2: Sảnh chờ Lobby -->
+      <div id="pvp-lobby-screen" class="pvp-box hidden">
+        <div class="lobby-header">
+          <span>Xin chào, <b id="my-display-name">...</b></span>
+          <span class="stealth-tag">Chế độ: Tàng hình điểm số</span>
+        </div>
+        <h4>Danh Sách Người Chơi Online</h4>
+        <div id="player-list" class="player-list">
+          <p class="empty-msg">Chưa có đối thủ nào khác online...</p>
+        </div>
+      </div>
+
+      <!-- Màn hình 3: Trong trận đấu PvP -->
+      <div id="pvp-match-screen" class="pvp-box hidden">
+        <div class="match-meta">
+          <div class="meta-item">Đối thủ: <b id="pvp-opponent-name">...</b></div>
+          <div class="meta-item timer-box">⏳ <span id="pvp-timer">45</span>s</div>
+          <div class="meta-item">Đúng: <b id="pvp-my-score" style="color:var(--correct)">0</b></div>
+        </div>
+
+        <div class="stealth-banner">🛡️ Điểm và tiến độ được giấu kín cho đến khi kết thúc trận!</div>
+
+        <div class="pvp-card">
+          <div class="q-counter" id="pvp-q-counter">Câu 1/12</div>
+          <div class="word-display" id="pvp-word-display">word</div>
+          <div class="options-grid" id="pvp-options-grid"></div>
+          <div class="feedback-msg" id="pvp-feedback-msg"></div>
+        </div>
+      </div>
+
+      <!-- Màn hình 4: Kết Quả Trận Đấu -->
+      <div id="pvp-result-screen" class="pvp-box hidden">
+        <h2 id="result-title">KẾT QUẢ</h2>
+        <p id="result-reason" class="instruction"></p>
+        <div class="scoreboard-grid">
+          <div class="score-card">
+            <span>Bạn</span>
+            <b id="final-my-score" class="big-score">0</b>
+          </div>
+          <div class="score-card">
+            <span id="final-opp-name">Đối thủ</span>
+            <b id="final-opp-score" class="big-score">0</b>
+          </div>
+        </div>
+        <button id="btn-back-lobby" class="btn-primary" style="margin-top:16px;">Về Lại Phòng Chờ</button>
+      </div>
+
+      <!-- Modal nhận lời mời -->
+      <div id="invite-modal" class="modal hidden">
+        <div class="modal-content">
+          <h3>Lời Thách Đấu!</h3>
+          <p><b id="inviter-name">...</b> muốn thách đấu từ vựng với bạn!</p>
+          <div class="modal-actions">
+            <button id="btn-accept-invite" class="btn-correct">Chấp Nhận</button>
+            <button id="btn-reject-invite" class="btn-wrong">Từ Chối</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
